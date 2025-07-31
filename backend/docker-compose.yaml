@@ -1,0 +1,20 @@
+services:
+  easy-comment-backend:
+    build:
+      dockerfile: Dockerfile
+    container_name: easy-comment-backend
+    env_file:
+      - ./.env
+    ports:
+      - "8880:8880"
+    volumes:
+      - ./:/app
+    restart: always
+    networks:
+      - clite-network
+
+networks:
+    clite-network:
+      external: true
+
+ 

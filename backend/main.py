@@ -484,4 +484,4 @@ async def export_comments_csv(instance_id: str):
 if __name__ == "__main__":
     import uvicorn
     # Socket.IOアプリケーションとして起動
-    uvicorn.run("main:socket_app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:socket_app", host="0.0.0.0", port=8880, reload=True)

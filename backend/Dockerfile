@@ -10,8 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # アプリケーションコードをコピー
 COPY . .
 
-# ポート8000を公開
-EXPOSE 8000
+# ポート8880を公開
+EXPOSE 8880
 
 # アプリケーションを起動
 CMD ["python", "main.py"]
