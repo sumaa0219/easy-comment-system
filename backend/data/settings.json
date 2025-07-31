@@ -1,0 +1,14 @@
+{
+  "0ce8fc5f-855a-426b-b664-3f482c3a52b9": {
+    "background_color": "#00FF00",
+    "text_color": "#000000",
+    "font_size": 16,
+    "max_comments": 50,
+    "auto_scroll": true,
+    "show_timestamp": true,
+    "moderation_enabled": false,
+    "comment_width": 400,
+    "background_opacity": 100,
+    "comment_background_color": "#FFFFFF"
+  }
+}
