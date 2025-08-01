@@ -235,6 +235,31 @@ async def join_instance(sid, data):
         logger.warning(f"Instance {instance_id} not found for client {sid}")
         await sio.emit('error', {'message': 'Instance not found'}, room=sid)
 
+@sio.event
+async def join_admin_instance(sid, data):
+    """管理者用のインスタンス参加（全コメントを送信）"""
+    instance_id = data.get('instance_id')
+    if instance_id in data_store.instances:
+        try:
+            await sio.enter_room(sid, f"admin_{instance_id}")
+            logger.info(f"Admin client {sid} joined instance {instance_id}")
+            
+            # 管理者には全コメント（非表示も含む）を送信
+            all_comments = data_store.comments.get(instance_id, [])
+            logger.info(f"Sending {len(all_comments)} admin comments to client {sid}")
+            await sio.emit('initial_admin_comments', {'comments': all_comments}, room=sid)
+            
+            # 設定も送信
+            settings = data_store.settings.get(instance_id, DisplaySettings().dict())
+            await sio.emit('settings_updated', settings, room=sid)
+            
+        except Exception as e:
+            logger.error(f"Error joining admin room: {e}")
+            await sio.emit('error', {'message': 'Failed to join admin instance'}, room=sid)
+    else:
+        logger.warning(f"Instance {instance_id} not found for admin client {sid}")
+        await sio.emit('error', {'message': 'Instance not found'}, room=sid)
+
 # API エンドポイント
 @app.get("/")
 async def root():
@@ -338,8 +363,9 @@ async def create_comment(comment: CommentCreate):
     # データを永続化
     data_store.save_data()
     
-    # Socket.IO で新しいコメントを配信
+    # Socket.IO で新しいコメントを配信（一般ユーザー用と管理者用の両方）
     await sio.emit('new_comment', comment_data, room=comment.instance_id)
+    await sio.emit('new_comment', comment_data, room=f"admin_{comment.instance_id}")
     
     # Webhook通知（設定されている場合）
     instance = data_store.instances[comment.instance_id]
@@ -431,8 +457,9 @@ async def hide_comment(instance_id: str, comment_id: str):
     # データを永続化
     data_store.save_data()
     
-    # Socket.IO で非表示を配信
+    # Socket.IO で非表示を配信（一般ユーザー用と管理者用の両方）
     await sio.emit('comment_hidden', {'comment_id': comment_id}, room=instance_id)
+    await sio.emit('comment_hidden', {'comment_id': comment_id}, room=f"admin_{instance_id}")
     
     return {"message": "Comment hidden"}
 
@@ -443,11 +470,13 @@ async def show_comment(instance_id: str, comment_id: str):
     
     comments = data_store.comments.get(instance_id, [])
     comment_found = False
+    comment_data = None
     
     for comment in comments:
         if comment['id'] == comment_id:
             comment['hidden'] = False
             comment_found = True
+            comment_data = comment
             break
     
     if not comment_found:
@@ -456,8 +485,15 @@ async def show_comment(instance_id: str, comment_id: str):
     # データを永続化
     data_store.save_data()
     
-    # Socket.IO で表示復帰を配信
-    await sio.emit('comment_shown', {'comment_id': comment_id}, room=instance_id)
+    # Socket.IO で表示復帰を配信（一般ユーザー用と管理者用の両方）
+    await sio.emit('comment_shown', {
+        'comment_id': comment_id, 
+        'comment': comment_data
+    }, room=instance_id)
+    await sio.emit('comment_shown', {
+        'comment_id': comment_id, 
+        'comment': comment_data
+    }, room=f"admin_{instance_id}")
     
     return {"message": "Comment shown"}
 

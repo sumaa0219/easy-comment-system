@@ -5,10 +5,10 @@ import { Comment, DisplaySettings } from '../types';
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8000';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export const useSocket = (instanceId?: string) => {
+export const useAdminSocket = (instanceId?: string) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [allComments, setAllComments] = useState<Comment[]>([]);
   const [settings, setSettings] = useState<DisplaySettings | null>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -18,21 +18,21 @@ export const useSocket = (instanceId?: string) => {
     });
 
     newSocket.on('connect', () => {
-      console.log('Connected to server');
+      console.log('Admin socket connected to server');
       setConnected(true);
     });
 
     newSocket.on('disconnect', () => {
-      console.log('Disconnected from server');
+      console.log('Admin socket disconnected from server');
       setConnected(false);
     });
 
     newSocket.on('new_comment', (comment: Comment) => {
-      setComments(prev => [...prev, comment]);
+      setAllComments(prev => [...prev, comment]);
     });
 
-    newSocket.on('initial_comments', (data: { comments: Comment[] }) => {
-      setComments(data.comments);
+    newSocket.on('initial_admin_comments', (data: { comments: Comment[] }) => {
+      setAllComments(data.comments);
       // フォールバックタイマーをクリア
       if (fallbackTimeoutRef.current) {
         clearTimeout(fallbackTimeoutRef.current);
@@ -44,31 +44,33 @@ export const useSocket = (instanceId?: string) => {
       setSettings(newSettings);
     });
 
-    newSocket.on('comment_deleted', (data: { comment_id: string }) => {
-      setComments(prev => prev.filter(comment => comment.id !== data.comment_id));
-    });
-
     newSocket.on('comment_hidden', (data: { comment_id: string }) => {
-      setComments(prev => prev.filter(comment => comment.id !== data.comment_id));
+      setAllComments(prev => 
+        prev.map(comment => 
+          comment.id === data.comment_id 
+            ? { ...comment, hidden: true } 
+            : comment
+        )
+      );
     });
 
-    newSocket.on('comment_shown', (data: { comment_id: string; comment?: Comment }) => {
-      // 表示復帰の場合、コメントを再追加
-      if (data.comment) {
-        setComments(prev => {
-          // 既に存在しないことを確認してから追加
-          const exists = prev.some(c => c.id === data.comment_id);
-          if (!exists) {
-            return [...prev, data.comment as Comment];
-          }
-          return prev;
-        });
-      }
+    newSocket.on('comment_shown', (data: { comment_id: string }) => {
+      setAllComments(prev => 
+        prev.map(comment => 
+          comment.id === data.comment_id 
+            ? { ...comment, hidden: false } 
+            : comment
+        )
+      );
+    });
+
+    newSocket.on('comment_deleted', (data: { comment_id: string }) => {
+      setAllComments(prev => prev.filter(comment => comment.id !== data.comment_id));
     });
 
     newSocket.on('instance_deleted', () => {
       console.log('Instance was deleted');
-      setComments([]);
+      setAllComments([]);
       setSettings(null);
     });
 
@@ -86,19 +88,21 @@ export const useSocket = (instanceId?: string) => {
   useEffect(() => {
     if (socket && instanceId) {
       // コメントをリセットしてから新しいインスタンスに参加
-      setComments([]);
-      socket.emit('join_instance', { instance_id: instanceId });
+      setAllComments([]);
+      socket.emit('join_admin_instance', { instance_id: instanceId });
       
       // フォールバック: Socket.IOが失敗した場合のAPIからの直接取得
       const loadCommentsFromAPI = async () => {
         try {
-          const response = await fetch(`${API_URL}/comments/${instanceId}/`);
+          const response = await fetch(`${API_URL}/admin/comments/${instanceId}/`, {
+            credentials: 'include'
+          });
           if (response.ok) {
             const comments = await response.json();
-            setComments(comments);
+            setAllComments(comments);
           }
         } catch (error) {
-          console.error('Failed to load comments from API:', error);
+          console.error('Failed to load admin comments from API:', error);
         }
       };
       
@@ -115,19 +119,19 @@ export const useSocket = (instanceId?: string) => {
     }
   }, [socket, instanceId]);
 
-  const joinInstance = (instanceId: string) => {
+  const joinAdminInstance = (instanceId: string) => {
     if (socket) {
-      socket.emit('join_instance', { instance_id: instanceId });
+      socket.emit('join_admin_instance', { instance_id: instanceId });
     }
   };
 
   return {
     socket,
     connected,
-    comments,
+    allComments,
     settings,
-    joinInstance,
-    setComments,
+    joinAdminInstance,
+    setAllComments,
     setSettings,
   };
 };

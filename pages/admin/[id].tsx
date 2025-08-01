@@ -1,8 +1,8 @@
 import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
-import { useSocket } from "../../hooks/useSocket";
+import { useState } from "react";
+import { useAdminSocket } from "../../hooks/useAdminSocket";
 import { commentApi } from "../../lib/api";
-import { Instance, DisplaySettings, Comment } from "../../types";
+import { Instance, DisplaySettings } from "../../types";
 import { GetServerSideProps } from "next";
 
 // 環境変数を定義（useSocketフックとcommentAPIで内部的に使用される）
@@ -55,35 +55,8 @@ export default function AdminPage({
   const [activeTab, setActiveTab] = useState<
     "settings" | "comments" | "export" | "stats"
   >("settings");
-  const [allComments, setAllComments] = useState<Comment[]>([]);
 
-  const { comments, connected } = useSocket(instanceId);
-
-  // コメント履歴を取得
-  useEffect(() => {
-    const loadComments = async () => {
-      if (!instanceId) return;
-      try {
-        const commentHistory = await commentApi.getAdminComments(instanceId);
-        setAllComments(commentHistory);
-      } catch (error) {
-        console.error("Failed to load comments:", error);
-      }
-    };
-
-    loadComments();
-  }, [instanceId]);
-
-  // リアルタイムコメントと履歴をマージ
-  useEffect(() => {
-    if (comments.length > 0) {
-      setAllComments((prevAll) => {
-        const existingIds = new Set(prevAll.map((c) => c.id));
-        const newComments = comments.filter((c) => !existingIds.has(c.id));
-        return [...prevAll, ...newComments];
-      });
-    }
-  }, [comments]);
+  const { allComments, connected } = useAdminSocket(instanceId);
 
   const handleSaveSettings = async () => {
     if (!instanceId || !settings) return;
@@ -100,15 +73,11 @@ export default function AdminPage({
     }
   };
 
-  const handleDeleteComment = async (commentId: string) => {
+  const handleHideComment = async (commentId: string) => {
     if (!instanceId || !confirm("このコメントを非表示にしますか？")) return;
 
     try {
       await commentApi.hideComment(instanceId, commentId);
-      // 非表示後、ローカルの全コメントリストから該当コメントのhiddenフラグを更新
-      setAllComments((prev) =>
-        prev.map((c) => (c.id === commentId ? { ...c, hidden: true } : c))
-      );
     } catch (error) {
       console.error("Failed to hide comment:", error);
       alert("コメントの非表示に失敗しました");
@@ -120,10 +89,6 @@ export default function AdminPage({
 
     try {
       await commentApi.showComment(instanceId, commentId);
-      // 表示復帰後、ローカルの全コメントリストから該当コメントのhiddenフラグを更新
-      setAllComments((prev) =>
-        prev.map((c) => (c.id === commentId ? { ...c, hidden: false } : c))
-      );
     } catch (error) {
       console.error("Failed to show comment:", error);
       alert("コメントの表示復帰に失敗しました");
@@ -680,7 +645,7 @@ export default function AdminPage({
                               </button>
                             ) : (
                               <button
-                                onClick={() => handleDeleteComment(comment.id)}
+                                onClick={() => handleHideComment(comment.id)}
                                 className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600 transition-colors"
                               >
                                 非表示
