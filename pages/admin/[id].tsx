@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAdminSocket } from "../../hooks/useAdminSocket";
 import { commentApi } from "../../lib/api";
 import { Instance, DisplaySettings } from "../../types";
@@ -21,6 +21,148 @@ const hexToRgb = (hex: string): string => {
         16
       )}`
     : "0, 0, 0";
+};
+
+// プレビュー用コメントコンポーネント：文字サイズ自動調整機能付き
+const PreviewComment = ({
+  settings,
+  author = "サンプルユーザー",
+  content = "これはプレビュー用のサンプルコメントです。設定された幅と高さに合わせて文字サイズが自動調整されます。",
+  showTimestamp = true,
+}: {
+  settings: DisplaySettings;
+  author?: string;
+  content?: string;
+  showTimestamp?: boolean;
+}) => {
+  const commentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [adjustedFontSize, setAdjustedFontSize] = useState(settings.font_size);
+
+  useEffect(() => {
+    const adjustFontSize = () => {
+      if (!commentRef.current || !contentRef.current) return;
+
+      const container = commentRef.current;
+      const content = contentRef.current;
+      const headerHeight = container.querySelector(".flex")?.clientHeight || 0;
+
+      // 初期フォントサイズに戻す
+      let fontSize = settings.font_size;
+      setAdjustedFontSize(fontSize);
+      content.style.fontSize = `${fontSize}px`;
+
+      // 次のフレームで実際のサイズをチェック
+      setTimeout(() => {
+        if (!container || !content) return;
+
+        const containerHeight = container.clientHeight;
+        const availableHeight = containerHeight - headerHeight - 16; // パディング分を除く
+        const minFontSize = Math.max(8, settings.font_size * 0.3); // 最小フォントサイズをより小さく
+
+        // 高さがはみ出している場合、フォントサイズを調整
+        let attempts = 0;
+        while (
+          fontSize > minFontSize &&
+          content.scrollHeight > availableHeight &&
+          attempts < 20
+        ) {
+          fontSize = Math.max(fontSize - 0.5, minFontSize); // より細かい調整
+          content.style.fontSize = `${fontSize}px`;
+          attempts++;
+        }
+
+        // さらに調整が必要な場合は行間も調整
+        if (content.scrollHeight > availableHeight && fontSize <= minFontSize) {
+          content.style.lineHeight = "1.0";
+        }
+
+        setAdjustedFontSize(fontSize);
+      }, 50); // 少し長めの待機時間
+    };
+
+    adjustFontSize();
+  }, [
+    content,
+    settings.font_size,
+    settings.comment_height,
+    settings.comment_width,
+    settings.show_timestamp,
+  ]);
+
+  return (
+    <div
+      ref={commentRef}
+      className="p-2 rounded border-l-4 relative"
+      style={{
+        backgroundColor: `rgba(${hexToRgb(
+          settings.comment_background_color || settings.text_color
+        )}, ${(settings.background_opacity || 30) / 100})`,
+        borderLeftColor: settings.text_color,
+        width: `${settings.comment_width || 400}px`,
+        height: `${settings.comment_height || 120}px`,
+        maxWidth: "100%",
+        color: `rgba(${hexToRgb(settings.text_color)}, ${
+          (settings.text_opacity || 100) / 100
+        })`,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        className="flex items-center gap-2 mb-1 flex-shrink-0"
+        style={{ minHeight: "20px" }}
+      >
+        <span
+          className="font-bold text-sm truncate"
+          style={{
+            color: `rgba(${hexToRgb(settings.text_color)}, ${
+              (settings.text_opacity || 100) / 100
+            })`,
+            fontSize: `${Math.min(adjustedFontSize * 0.9, 14)}px`,
+          }}
+        >
+          {author}
+        </span>
+        {showTimestamp && settings.show_timestamp && (
+          <span
+            className="text-xs flex-shrink-0"
+            style={{
+              color: `rgba(${hexToRgb(settings.text_color)}, ${
+                ((settings.text_opacity || 100) * 0.6) / 100
+              })`,
+              fontSize: `${Math.min(adjustedFontSize * 0.7, 12)}px`,
+            }}
+          >
+            1分前
+          </span>
+        )}
+      </div>
+      <div
+        ref={contentRef}
+        className="leading-tight flex-1 overflow-hidden"
+        style={{
+          color: `rgba(${hexToRgb(settings.text_color)}, ${
+            (settings.text_opacity || 100) / 100
+          })`,
+          fontSize: `${adjustedFontSize}px`,
+          lineHeight:
+            adjustedFontSize < settings.font_size * 0.7 ? "1.0" : "1.2",
+          wordBreak: "break-word",
+          hyphens: "auto",
+          display: "-webkit-box",
+          WebkitLineClamp: Math.floor(
+            (settings.comment_height - 40) / (adjustedFontSize * 1.2)
+          ),
+          WebkitBoxOrient: "vertical",
+        }}
+      >
+        {content}
+      </div>
+    </div>
+  );
 };
 
 const COLOR_PRESETS = [
@@ -409,6 +551,24 @@ export default function AdminPage({
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                          コメントの高さ: {settings.comment_height || 120}px
+                        </label>
+                        <input
+                          type="range"
+                          min="60"
+                          max="300"
+                          value={settings.comment_height || 120}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              comment_height: parseInt(e.target.value),
+                            })
+                          }
+                          className="w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                           コメント背景の不透明度:{" "}
                           {settings.background_opacity || 30}%
                         </label>
@@ -537,65 +697,28 @@ export default function AdminPage({
                     プレビュー
                   </h3>
                   <div
-                    className="border rounded-lg p-4 h-32 overflow-y-auto"
+                    className="border rounded-lg p-4 overflow-auto"
                     style={{
                       backgroundColor: settings.background_color,
                       color: settings.text_color,
                       fontSize: `${settings.font_size}px`,
+                      minHeight: "300px",
+                      maxHeight: "500px",
                     }}
                   >
                     <div className="space-y-2">
-                      <div
-                        className="p-2 rounded border-l-4"
-                        style={{
-                          backgroundColor: `rgba(${hexToRgb(
-                            settings.comment_background_color ||
-                              settings.text_color
-                          )}, ${(settings.background_opacity || 30) / 100})`,
-                          borderLeftColor: settings.text_color,
-                          width: `${settings.comment_width || 400}px`,
-                          maxWidth: "100%",
-                          color: `rgba(${hexToRgb(settings.text_color)}, ${
-                            (settings.text_opacity || 100) / 100
-                          })`,
-                        }}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className="font-bold text-sm"
-                            style={{
-                              color: `rgba(${hexToRgb(settings.text_color)}, ${
-                                (settings.text_opacity || 100) / 100
-                              })`,
-                            }}
-                          >
-                            サンプルユーザー
-                          </span>
-                          {settings.show_timestamp && (
-                            <span
-                              className="text-xs"
-                              style={{
-                                color: `rgba(${hexToRgb(
-                                  settings.text_color
-                                )}, ${
-                                  ((settings.text_opacity || 100) * 0.6) / 100
-                                })`,
-                              }}
-                            >
-                              1分前
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            color: `rgba(${hexToRgb(settings.text_color)}, ${
-                              (settings.text_opacity || 100) / 100
-                            })`,
-                          }}
-                        >
-                          これはプレビュー用のサンプルコメントです。
-                        </div>
-                      </div>
+                      <PreviewComment
+                        settings={settings}
+                        author="ユーザー1"
+                        content="短いコメントの例です。"
+                        showTimestamp={true}
+                      />
+                      <PreviewComment
+                        settings={settings}
+                        author="ユーザー2"
+                        content="これは長いコメントの例です。設定された幅と高さに合わせて文字サイズが自動調整されます。長いテキストでもボックス内に収まるように表示され、読みやすさを保持します。フォントサイズが自動的に調整されることで、どんな長さのコメントでも適切に表示できます。"
+                        showTimestamp={true}
+                      />
                     </div>
                   </div>
                 </div>
@@ -898,6 +1021,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
           show_timestamp: true,
           moderation_enabled: false,
           comment_width: 400,
+          comment_height: 120,
           background_opacity: 30,
           text_opacity: 100,
           comment_background_color: "#FFFFFF",
@@ -915,6 +1039,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         show_timestamp: true,
         moderation_enabled: false,
         comment_width: 400,
+        comment_height: 120,
         background_opacity: 30,
         text_opacity: 100,
         comment_background_color: "#FFFFFF",

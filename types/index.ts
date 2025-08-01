@@ -26,6 +26,7 @@ export interface DisplaySettings {
   show_timestamp: boolean;
   moderation_enabled: boolean;
   comment_width: number;
+  comment_height: number;
   background_opacity: number;
   text_opacity: number;
   comment_background_color: string;

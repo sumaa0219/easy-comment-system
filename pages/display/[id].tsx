@@ -22,13 +22,175 @@ const hexToRgb = (hex: string): string => {
     : "0, 0, 0";
 };
 
+// コメントコンポーネント：文字サイズ自動調整機能付き
+const AutoSizeComment = ({
+  comment,
+  settings,
+  localOpacity,
+  localTextOpacity,
+  baseFontSize,
+  flowDirection,
+}: {
+  comment: Comment;
+  settings: DisplaySettings;
+  localOpacity: number;
+  localTextOpacity: number;
+  baseFontSize: number;
+  flowDirection:
+    | "bottom-to-top"
+    | "top-to-bottom"
+    | "right-to-left"
+    | "left-to-right";
+}) => {
+  const commentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [adjustedFontSize, setAdjustedFontSize] = useState(baseFontSize);
+
+  useEffect(() => {
+    const adjustFontSize = () => {
+      if (!commentRef.current || !contentRef.current) return;
+
+      const container = commentRef.current;
+      const content = contentRef.current;
+
+      // 初期フォントサイズに戻してリセット
+      content.style.fontSize = `${baseFontSize}px`;
+      content.style.lineHeight = "1.2";
+
+      // 次のフレームで実際のサイズをチェック
+      requestAnimationFrame(() => {
+        if (!container || !content) return;
+
+        const containerHeight = container.clientHeight;
+        // ヘッダー部分の高さを取得（author + timestamp部分）
+        const headerElement = container.querySelector(
+          ".flex.items-center.gap-2.mb-1.flex-shrink-0"
+        ) as HTMLElement;
+        const headerHeight = headerElement ? headerElement.clientHeight : 0;
+        const padding = 24; // p-3のpadding (12px * 2)
+        const availableHeight = containerHeight - headerHeight - padding;
+
+        let fontSize = baseFontSize;
+        const minFontSize = Math.max(8, baseFontSize * 0.3); // 最小フォントサイズを40%まで下げる
+
+        // より精密な調整：0.5px刻みで調整
+        while (
+          fontSize > minFontSize &&
+          content.scrollHeight > availableHeight
+        ) {
+          fontSize = fontSize - 0.5;
+          content.style.fontSize = `${fontSize}px`;
+
+          // 小さいフォントサイズの場合は行間を詰める
+          if (fontSize < baseFontSize * 0.7) {
+            content.style.lineHeight = "1.1";
+          } else {
+            content.style.lineHeight = "1.2";
+          }
+        }
+
+        setAdjustedFontSize(fontSize);
+      });
+    };
+
+    adjustFontSize();
+  }, [
+    comment.content,
+    baseFontSize,
+    settings.comment_height,
+    settings.comment_width,
+  ]);
+
+  return (
+    <div
+      ref={commentRef}
+      className="p-3 rounded-lg shadow-sm border-l-4 backdrop-blur-sm flex-shrink-0"
+      style={{
+        backgroundColor: `rgba(${hexToRgb(
+          settings.comment_background_color || settings.text_color
+        )}, ${localOpacity / 100})`,
+        borderLeftColor: settings.text_color,
+        width:
+          flowDirection === "right-to-left" || flowDirection === "left-to-right"
+            ? `${settings.comment_width || 400}px`
+            : "auto",
+        height: `${settings.comment_height || 120}px`,
+        minHeight: `${settings.comment_height || 120}px`,
+        maxHeight: `${settings.comment_height || 120}px`,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box",
+      }}
+    >
+      <div className="flex items-start justify-between h-full">
+        <div className="flex-1 h-full flex flex-col">
+          <div className="flex items-center gap-2 mb-1 flex-shrink-0">
+            <span
+              className="font-bold text-sm"
+              style={{
+                color: `rgba(${hexToRgb(settings.text_color)}, ${
+                  (localTextOpacity * 0.9) / 100
+                })`,
+                fontSize: `${Math.min(adjustedFontSize * 0.9, 14)}px`,
+              }}
+            >
+              {comment.author}
+            </span>
+            {settings.show_timestamp && (
+              <span
+                className="text-xs"
+                style={{
+                  color: `rgba(${hexToRgb(settings.text_color)}, ${
+                    (localTextOpacity * 0.6) / 100
+                  })`,
+                  fontSize: `${Math.min(adjustedFontSize * 0.7, 12)}px`,
+                }}
+              >
+                {new Date(comment.timestamp).toLocaleString("ja-JP", {
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
+          </div>
+          <div
+            ref={contentRef}
+            className="leading-tight flex-1 overflow-hidden"
+            style={{
+              color: `rgba(${hexToRgb(settings.text_color)}, ${
+                localTextOpacity / 100
+              })`,
+              fontSize: `${adjustedFontSize}px`,
+              lineHeight: "1.2",
+              wordBreak: "break-word",
+              hyphens: "auto",
+              boxSizing: "border-box",
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp:
+                Math.floor(
+                  (settings.comment_height || 120) / (adjustedFontSize * 1.2)
+                ) - 2,
+            }}
+          >
+            {comment.content}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function DisplayPage() {
   const router = useRouter();
   const { id: instanceId } = router.query as { id: string };
   const [settings, setSettings] = useState<DisplaySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [showControls, setShowControls] = useState(false);
-  const [localWidth, setLocalWidth] = useState(100);
   const [localOpacity, setLocalOpacity] = useState(30);
   const [localTextOpacity, setLocalTextOpacity] = useState(100);
   const [visibleComments, setVisibleComments] = useState<Comment[]>([]);
@@ -191,7 +353,6 @@ export default function DisplayPage() {
 
   useEffect(() => {
     if (currentSettings) {
-      setLocalWidth(currentSettings.comment_width || 100);
       setLocalOpacity(currentSettings.background_opacity || 30);
       setLocalTextOpacity(currentSettings.text_opacity || 100);
     }
@@ -367,67 +528,15 @@ export default function DisplayPage() {
             </div>
           ) : (
             displayComments.map((comment) => (
-              <div
+              <AutoSizeComment
                 key={comment.id}
-                className="p-3 rounded-lg shadow-sm border-l-4 backdrop-blur-sm flex-shrink-0"
-                style={{
-                  backgroundColor: `rgba(${hexToRgb(
-                    currentSettings.comment_background_color ||
-                      currentSettings.text_color
-                  )}, ${localOpacity / 100})`,
-                  borderLeftColor: currentSettings.text_color,
-                  width:
-                    flowDirection === "right-to-left" ||
-                    flowDirection === "left-to-right"
-                      ? `${currentSettings.comment_width || 400}px`
-                      : "auto",
-                }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className="font-bold text-sm"
-                        style={{
-                          color: `rgba(${hexToRgb(
-                            currentSettings.text_color
-                          )}, ${(localTextOpacity * 0.9) / 100})`,
-                        }}
-                      >
-                        {comment.author}
-                      </span>
-                      {currentSettings.show_timestamp && (
-                        <span
-                          className="text-xs"
-                          style={{
-                            color: `rgba(${hexToRgb(
-                              currentSettings.text_color
-                            )}, ${(localTextOpacity * 0.6) / 100})`,
-                          }}
-                        >
-                          {new Date(comment.timestamp).toLocaleString("ja-JP", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="leading-relaxed"
-                      style={{
-                        color: `rgba(${hexToRgb(currentSettings.text_color)}, ${
-                          localTextOpacity / 100
-                        })`,
-                      }}
-                    >
-                      {comment.content}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                comment={comment}
+                settings={currentSettings}
+                localOpacity={localOpacity}
+                localTextOpacity={localTextOpacity}
+                baseFontSize={currentSettings.font_size}
+                flowDirection={flowDirection}
+              />
             ))
           )}
           <div ref={commentsEndRef} />
