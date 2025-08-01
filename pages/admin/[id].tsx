@@ -56,7 +56,12 @@ export default function AdminPage({
     "settings" | "comments" | "export" | "stats"
   >("settings");
 
-  const { allComments, connected } = useAdminSocket(instanceId);
+  const { allComments, connected } = useAdminSocket(
+    instanceId,
+    instance?.admin_password
+      ? `Basic ${btoa(`:${instance.admin_password}`)}`
+      : undefined
+  );
 
   const handleSaveSettings = async () => {
     if (!instanceId || !settings) return;

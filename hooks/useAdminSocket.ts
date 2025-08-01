@@ -5,7 +5,7 @@ import { Comment, DisplaySettings } from '../types';
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8000';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export const useAdminSocket = (instanceId?: string) => {
+export const useAdminSocket = (instanceId?: string, authHeader?: string) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [allComments, setAllComments] = useState<Comment[]>([]);
@@ -94,8 +94,13 @@ export const useAdminSocket = (instanceId?: string) => {
       // フォールバック: Socket.IOが失敗した場合のAPIからの直接取得
       const loadCommentsFromAPI = async () => {
         try {
+          const headers: HeadersInit = {};
+          if (authHeader) {
+            headers['Authorization'] = authHeader;
+          }
+          
           const response = await fetch(`${API_URL}/admin/comments/${instanceId}/`, {
-            credentials: 'include'
+            headers
           });
           if (response.ok) {
             const comments = await response.json();
@@ -117,7 +122,7 @@ export const useAdminSocket = (instanceId?: string) => {
         }
       };
     }
-  }, [socket, instanceId]);
+  }, [socket, instanceId, authHeader]);
 
   const joinAdminInstance = (instanceId: string) => {
     if (socket) {

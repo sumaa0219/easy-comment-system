@@ -37,8 +37,8 @@ app = FastAPI(title="TSG Comment API", version="1.0.0")
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000","https://easy-comment.clite.jp"],
-    allow_credentials=False,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "https://easy-comment.clite.jp"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
