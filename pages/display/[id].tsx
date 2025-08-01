@@ -46,8 +46,16 @@ export default function DisplayPage() {
 
   // コメントの遅延表示を管理
   useEffect(() => {
+    console.log(
+      "Lag effect triggered. Settings:",
+      currentSettings?.lag_seconds,
+      "Comments:",
+      comments.length
+    );
+
     if (!currentSettings?.lag_seconds || currentSettings.lag_seconds === 0) {
       // 遅延なしの場合は即座に表示
+      console.log("No lag, showing all comments immediately");
       setVisibleComments(comments);
       return;
     }
@@ -55,41 +63,85 @@ export default function DisplayPage() {
     const lagMs = currentSettings.lag_seconds * 1000;
     const lagTimers = lagTimerRef.current;
 
-    // 新しいコメントをチェック
-    comments.forEach((comment) => {
-      // 既に表示済みまたはタイマー設定済みの場合はスキップ
-      if (
-        visibleComments.find((c) => c.id === comment.id) ||
-        lagTimers.has(comment.id)
-      ) {
-        return;
-      }
+    console.log(
+      `Using lag of ${currentSettings.lag_seconds} seconds (${lagMs}ms)`
+    );
 
+    // 既存のタイマーをクリア
+    lagTimers.forEach((timerId) => clearTimeout(timerId));
+    lagTimers.clear();
+
+    // まず表示可能なコメントを計算
+    const now = Date.now();
+    const immediatelyVisible: Comment[] = [];
+    const delayedComments: Comment[] = [];
+
+    comments.forEach((comment) => {
       const commentTime = new Date(comment.timestamp).getTime();
-      const now = Date.now();
       const timeElapsed = now - commentTime;
+      console.log(`${now} - ${commentTime}`);
+      const timeElapsedSeconds = Math.floor(timeElapsed / 1000);
+
+      console.log(
+        `Comment ${comment.id.slice(
+          -8
+        )}: elapsed ${timeElapsedSeconds}s (${timeElapsed}ms), threshold ${
+          currentSettings.lag_seconds
+        }s (${lagMs}ms), content: "${comment.content.slice(0, 20)}..."`
+      );
 
       if (timeElapsed >= lagMs) {
         // 遅延時間が過ぎているので即座に表示
-        setVisibleComments((prev) => [...prev, comment]);
+        immediatelyVisible.push(comment);
+        console.log(
+          `  -> Immediately visible (${timeElapsedSeconds}s >= ${currentSettings.lag_seconds}s)`
+        );
       } else {
-        // 残り時間後に表示
-        const remainingTime = lagMs - timeElapsed;
-        const timerId = setTimeout(() => {
-          setVisibleComments((prev) => [...prev, comment]);
-          lagTimers.delete(comment.id);
-        }, remainingTime);
-
-        lagTimers.set(comment.id, timerId);
+        // 遅延表示が必要
+        delayedComments.push(comment);
+        const remainingSeconds = Math.ceil((lagMs - timeElapsed) / 1000);
+        console.log(`  -> Will be delayed by ${remainingSeconds}s`);
       }
     });
 
-    // クリーンアップ: 表示済みコメントに対応するタイマーを削除
+    // 即座に表示可能なコメントを設定
+    console.log(
+      "Immediately visible:",
+      immediatelyVisible.length,
+      "Delayed:",
+      delayedComments.length
+    );
+    setVisibleComments(immediatelyVisible);
+
+    // 遅延コメントのタイマーを設定
+    delayedComments.forEach((comment) => {
+      const commentTime = new Date(comment.timestamp).getTime();
+      const timeElapsed = now - commentTime;
+      const remainingTime = lagMs - timeElapsed;
+
+      console.log(
+        `Setting timer for comment ${comment.id}: ${remainingTime}ms`
+      );
+
+      const timerId = setTimeout(() => {
+        console.log(`Timer fired for comment ${comment.id}`);
+        setVisibleComments((prev) => {
+          const updated = [...prev, comment];
+          console.log("Updated visible comments:", updated.length);
+          return updated;
+        });
+        lagTimers.delete(comment.id);
+      }, remainingTime);
+
+      lagTimers.set(comment.id, timerId);
+    });
+
+    // クリーンアップ
     return () => {
       lagTimers.forEach((timerId) => clearTimeout(timerId));
       lagTimers.clear();
     };
-  }, [comments, currentSettings?.lag_seconds, visibleComments]);
+  }, [comments, currentSettings?.lag_seconds]);
 
   const loadSettings = useCallback(async () => {
     if (instanceId) {
