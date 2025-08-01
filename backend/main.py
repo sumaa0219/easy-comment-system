@@ -329,14 +329,8 @@ async def create_comment(comment: CommentCreate):
         "approved": True
     }
     
-    # コメントを保存
+    # コメントを保存（制限なし）
     data_store.comments[comment.instance_id].append(comment_data)
-    
-    # 最大コメント数を超えた場合、古いコメントを削除
-    settings = data_store.settings[comment.instance_id]
-    max_comments = settings.get('max_comments', 50)
-    if len(data_store.comments[comment.instance_id]) > max_comments:
-        data_store.comments[comment.instance_id] = data_store.comments[comment.instance_id][-max_comments:]
     
     # データを永続化
     data_store.save_data()

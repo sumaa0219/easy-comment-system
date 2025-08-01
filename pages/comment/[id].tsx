@@ -188,7 +188,7 @@ export default function CommentPage() {
                 </div>
               ) : (
                 comments
-                  .slice(-10)
+                  .slice(-20) // 最新20件のコメントを表示
                   .reverse()
                   .map((comment) => (
                     <div

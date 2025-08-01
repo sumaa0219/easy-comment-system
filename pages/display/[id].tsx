@@ -114,6 +114,7 @@ export default function DisplayPage() {
     );
   }
 
+  // displayページでのみ最大コメント数で制限
   const displayComments = comments.slice(-settings.max_comments);
 
   return (

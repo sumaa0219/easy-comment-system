@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSocket } from "../../hooks/useSocket";
 import { commentApi } from "../../lib/api";
 import { Instance, DisplaySettings, Comment } from "../../types";
@@ -55,8 +55,35 @@ export default function AdminPage({
   const [activeTab, setActiveTab] = useState<
     "settings" | "comments" | "export" | "stats"
   >("settings");
+  const [allComments, setAllComments] = useState<Comment[]>([]);
 
   const { comments, connected } = useSocket(instanceId);
+
+  // コメント履歴を取得
+  useEffect(() => {
+    const loadComments = async () => {
+      if (!instanceId) return;
+      try {
+        const commentHistory = await commentApi.getComments(instanceId);
+        setAllComments(commentHistory);
+      } catch (error) {
+        console.error("Failed to load comments:", error);
+      }
+    };
+
+    loadComments();
+  }, [instanceId]);
+
+  // リアルタイムコメントと履歴をマージ
+  useEffect(() => {
+    if (comments.length > 0) {
+      setAllComments((prevAll) => {
+        const existingIds = new Set(prevAll.map((c) => c.id));
+        const newComments = comments.filter((c) => !existingIds.has(c.id));
+        return [...prevAll, ...newComments];
+      });
+    }
+  }, [comments]);
 
   const handleSaveSettings = async () => {
     if (!instanceId || !settings) return;
@@ -78,6 +105,8 @@ export default function AdminPage({
 
     try {
       await commentApi.deleteComment(instanceId, commentId);
+      // 削除後、ローカルの全コメントリストからも削除
+      setAllComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (error) {
       console.error("Failed to delete comment:", error);
       alert("コメントの削除に失敗しました");
@@ -580,16 +609,16 @@ export default function AdminPage({
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">
-                    コメント一覧 ({comments.length}件)
+                    コメント一覧 ({allComments.length}件)
                   </h3>
                 </div>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {comments.length === 0 ? (
+                  {allComments.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       まだコメントがありません
                     </div>
                   ) : (
-                    comments
+                    allComments
                       .slice()
                       .reverse()
                       .map((comment) => (
@@ -707,7 +736,7 @@ export default function AdminPage({
                       エクスポート情報
                     </h5>
                     <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• 現在の総コメント数: {comments.length}件</li>
+                      <li>• 現在の総コメント数: {allComments.length}件</li>
                       <li>• エクスポートにはすべてのコメントが含まれます</li>
                       <li>
                         • データには投稿者名、内容、タイムスタンプが含まれます
@@ -728,14 +757,14 @@ export default function AdminPage({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">
-                      {comments.length}
+                      {allComments.length}
                     </div>
                     <div className="text-sm text-gray-600">総コメント数</div>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-green-600">
                       {
-                        comments.filter(
+                        allComments.filter(
                           (c) =>
                             new Date(c.timestamp) >
                             new Date(Date.now() - 24 * 60 * 60 * 1000)
