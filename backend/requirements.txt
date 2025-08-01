@@ -8,3 +8,4 @@ aiofiles==23.2.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 aiohttp==3.9.1
+pytz==2023.3

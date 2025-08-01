@@ -1,10 +1,18 @@
 {
-  "0ce8fc5f-855a-426b-b664-3f482c3a52b9": {
-    "id": "0ce8fc5f-855a-426b-b664-3f482c3a52b9",
-    "name": "コメ欄",
+  "d7e00fce-2131-4365-ae3f-c01b029aad59": {
+    "id": "d7e00fce-2131-4365-ae3f-c01b029aad59",
+    "name": "テスト：ライトニングピッチ",
+    "webhook_url": "",
+    "admin_password": "Tokyo Startup Gateway",
+    "created_at": "2025-08-01T02:26:21.256176",
+    "active": true
+  },
+  "604e2757-cfa3-43ce-96d4-e9f3f56a91de": {
+    "id": "604e2757-cfa3-43ce-96d4-e9f3f56a91de",
+    "name": "テスト",
     "webhook_url": "",
     "admin_password": "TSG",
-    "created_at": "2025-08-01T01:30:49.317211",
+    "created_at": "2025-08-01T04:51:21.918171",
     "active": true
   }
 }

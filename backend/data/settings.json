@@ -1,5 +1,19 @@
 {
-  "0ce8fc5f-855a-426b-b664-3f482c3a52b9": {
+  "d7e00fce-2131-4365-ae3f-c01b029aad59": {
+    "background_color": "#00FF00",
+    "text_color": "#000000",
+    "font_size": 22,
+    "max_comments": 3,
+    "auto_scroll": true,
+    "show_timestamp": true,
+    "moderation_enabled": true,
+    "comment_width": 250,
+    "background_opacity": 73,
+    "text_opacity": 100,
+    "comment_background_color": "#fcccff",
+    "lag_seconds": 10
+  },
+  "604e2757-cfa3-43ce-96d4-e9f3f56a91de": {
     "background_color": "#00FF00",
     "text_color": "#000000",
     "font_size": 16,
@@ -8,7 +22,9 @@
     "show_timestamp": true,
     "moderation_enabled": false,
     "comment_width": 400,
-    "background_opacity": 100,
-    "comment_background_color": "#FFFFFF"
+    "background_opacity": 30,
+    "text_opacity": 100,
+    "comment_background_color": "#FFFFFF",
+    "lag_seconds": 10
   }
 }

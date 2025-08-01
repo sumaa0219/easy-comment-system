@@ -14,10 +14,14 @@ import os
 import aiofiles
 from pathlib import Path
 import base64
+import pytz
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 日本時間のタイムゾーン
+JST = pytz.timezone('Asia/Tokyo')
 
 # データ保存ディレクトリ
 DATA_DIR = Path("data")
@@ -104,7 +108,7 @@ class DataStore:
             "name": name,
             "webhook_url": webhook_url,
             "admin_password": admin_password,
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now(JST).isoformat(),
             "active": True
         }
         self.comments[instance_id] = []
@@ -354,7 +358,7 @@ async def create_comment(comment: CommentCreate):
         "instance_id": comment.instance_id,
         "author": comment.author,
         "content": comment.content,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(JST).isoformat(),
         "approved": True,
         "hidden": False
     }
@@ -523,7 +527,7 @@ async def export_comments_json(instance_id: str):
     instance_data = {
         "instance_id": instance_id,
         "instance_name": data_store.instances[instance_id]["name"],
-        "export_date": datetime.now().isoformat(),
+        "export_date": datetime.now(JST).isoformat(),
         "comments": comments
     }
     
