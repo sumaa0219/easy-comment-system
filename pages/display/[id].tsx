@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSocket } from "../../hooks/useSocket";
 import { commentApi } from "../../lib/api";
-import { DisplaySettings } from "../../types";
+import { DisplaySettings, Comment } from "../../types";
 
 // 環境変数を定義（useSocketフックとcommentApiで内部的に使用される）
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -31,9 +31,65 @@ export default function DisplayPage() {
   const [localWidth, setLocalWidth] = useState(100);
   const [localOpacity, setLocalOpacity] = useState(30);
   const [localTextOpacity, setLocalTextOpacity] = useState(100);
+  const [visibleComments, setVisibleComments] = useState<Comment[]>([]);
   const commentsEndRef = useRef<HTMLDivElement>(null);
+  const lagTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  const { comments, connected } = useSocket(instanceId);
+  const {
+    comments,
+    connected,
+    settings: socketSettings,
+  } = useSocket(instanceId);
+
+  // socketから受信した設定を優先的に使用
+  const currentSettings = socketSettings || settings;
+
+  // コメントの遅延表示を管理
+  useEffect(() => {
+    if (!currentSettings?.lag_seconds || currentSettings.lag_seconds === 0) {
+      // 遅延なしの場合は即座に表示
+      setVisibleComments(comments);
+      return;
+    }
+
+    const lagMs = currentSettings.lag_seconds * 1000;
+    const lagTimers = lagTimerRef.current;
+
+    // 新しいコメントをチェック
+    comments.forEach((comment) => {
+      // 既に表示済みまたはタイマー設定済みの場合はスキップ
+      if (
+        visibleComments.find((c) => c.id === comment.id) ||
+        lagTimers.has(comment.id)
+      ) {
+        return;
+      }
+
+      const commentTime = new Date(comment.timestamp).getTime();
+      const now = Date.now();
+      const timeElapsed = now - commentTime;
+
+      if (timeElapsed >= lagMs) {
+        // 遅延時間が過ぎているので即座に表示
+        setVisibleComments((prev) => [...prev, comment]);
+      } else {
+        // 残り時間後に表示
+        const remainingTime = lagMs - timeElapsed;
+        const timerId = setTimeout(() => {
+          setVisibleComments((prev) => [...prev, comment]);
+          lagTimers.delete(comment.id);
+        }, remainingTime);
+
+        lagTimers.set(comment.id, timerId);
+      }
+    });
+
+    // クリーンアップ: 表示済みコメントに対応するタイマーを削除
+    return () => {
+      lagTimers.forEach((timerId) => clearTimeout(timerId));
+      lagTimers.clear();
+    };
+  }, [comments, currentSettings?.lag_seconds, visibleComments]);
 
   const loadSettings = useCallback(async () => {
     if (instanceId) {
@@ -79,26 +135,26 @@ export default function DisplayPage() {
   }, [instanceId, loadSettings, loadCommentsHistory]);
 
   useEffect(() => {
-    if (settings) {
-      setLocalWidth(settings.comment_width || 100);
-      setLocalOpacity(settings.background_opacity || 30);
-      setLocalTextOpacity(settings.text_opacity || 100);
+    if (currentSettings) {
+      setLocalWidth(currentSettings.comment_width || 100);
+      setLocalOpacity(currentSettings.background_opacity || 30);
+      setLocalTextOpacity(currentSettings.text_opacity || 100);
     }
-  }, [settings]);
+  }, [currentSettings]);
 
   useEffect(() => {
-    if (settings?.auto_scroll && commentsEndRef.current) {
+    if (currentSettings?.auto_scroll && commentsEndRef.current) {
       commentsEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [comments, settings?.auto_scroll]);
+  }, [visibleComments, currentSettings?.auto_scroll]);
 
   if (loading) {
     return (
       <div
         className="w-full h-screen flex items-center justify-center"
         style={{
-          backgroundColor: settings?.background_color || "#00FF00",
-          color: settings?.text_color || "#000000",
+          backgroundColor: currentSettings?.background_color || "#00FF00",
+          color: currentSettings?.text_color || "#000000",
         }}
       >
         <div className="text-2xl">読み込み中...</div>
@@ -106,7 +162,7 @@ export default function DisplayPage() {
     );
   }
 
-  if (!settings) {
+  if (!currentSettings) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-red-500 text-white">
         <div className="text-2xl">設定を読み込めませんでした</div>
@@ -114,16 +170,16 @@ export default function DisplayPage() {
     );
   }
 
-  // displayページでのみ最大コメント数で制限
-  const displayComments = comments.slice(-settings.max_comments);
+  // displayページでのみ最大コメント数で制限（visibleCommentsを使用）
+  const displayComments = visibleComments.slice(-currentSettings.max_comments);
 
   return (
     <div
       className="w-full h-screen overflow-hidden relative"
       style={{
-        backgroundColor: settings.background_color,
-        color: settings.text_color,
-        fontSize: `${settings.font_size}px`,
+        backgroundColor: currentSettings.background_color,
+        color: currentSettings.text_color,
+        fontSize: `${currentSettings.font_size}px`,
       }}
       onDoubleClick={() => setShowControls(!showControls)}
     >
@@ -189,7 +245,7 @@ export default function DisplayPage() {
         <div
           className="space-y-2"
           style={{
-            width: `${settings.comment_width || 400}px`,
+            width: `${currentSettings.comment_width || 400}px`,
             maxWidth: "100%",
           }}
         >
@@ -207,9 +263,10 @@ export default function DisplayPage() {
                 className="p-3 rounded-lg shadow-sm border-l-4 backdrop-blur-sm"
                 style={{
                   backgroundColor: `rgba(${hexToRgb(
-                    settings.comment_background_color || settings.text_color
+                    currentSettings.comment_background_color ||
+                      currentSettings.text_color
                   )}, ${localOpacity / 100})`,
-                  borderLeftColor: settings.text_color,
+                  borderLeftColor: currentSettings.text_color,
                 }}
               >
                 <div className="flex items-start justify-between">
@@ -218,20 +275,20 @@ export default function DisplayPage() {
                       <span
                         className="font-bold text-sm"
                         style={{
-                          color: `rgba(${hexToRgb(settings.text_color)}, ${
-                            (localTextOpacity * 0.9) / 100
-                          })`,
+                          color: `rgba(${hexToRgb(
+                            currentSettings.text_color
+                          )}, ${(localTextOpacity * 0.9) / 100})`,
                         }}
                       >
                         {comment.author}
                       </span>
-                      {settings.show_timestamp && (
+                      {currentSettings.show_timestamp && (
                         <span
                           className="text-xs"
                           style={{
-                            color: `rgba(${hexToRgb(settings.text_color)}, ${
-                              (localTextOpacity * 0.6) / 100
-                            })`,
+                            color: `rgba(${hexToRgb(
+                              currentSettings.text_color
+                            )}, ${(localTextOpacity * 0.6) / 100})`,
                           }}
                         >
                           {new Date(comment.timestamp).toLocaleString("ja-JP", {
@@ -247,7 +304,7 @@ export default function DisplayPage() {
                     <div
                       className="leading-relaxed"
                       style={{
-                        color: `rgba(${hexToRgb(settings.text_color)}, ${
+                        color: `rgba(${hexToRgb(currentSettings.text_color)}, ${
                           localTextOpacity / 100
                         })`,
                       }}
@@ -266,8 +323,8 @@ export default function DisplayPage() {
       {/* 設定情報（デバッグ用、本番では非表示にする） */}
       {process.env.NODE_ENV === "development" && (
         <div className="absolute bottom-2 left-2 text-xs opacity-30">
-          {instanceId} | {displayComments.length}/{settings.max_comments}{" "}
-          comments
+          {instanceId} | {displayComments.length}/{currentSettings.max_comments}{" "}
+          comments | lag: {currentSettings.lag_seconds}s
         </div>
       )}
     </div>
