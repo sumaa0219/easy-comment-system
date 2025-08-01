@@ -118,6 +118,7 @@ class DataStore:
             "moderation_enabled": False,
             "comment_width": 400,
             "background_opacity": 30,
+            "text_opacity": 100,
             "comment_background_color": "#FFFFFF"
         }
         self.save_data()
@@ -196,6 +197,7 @@ class DisplaySettings(BaseModel):
     moderation_enabled: bool = False
     comment_width: int = 400  # ピクセル単位
     background_opacity: int = 30  # パーセンテージ
+    text_opacity: int = 100  # パーセンテージ
     comment_background_color: str = "#FFFFFF"  # コメント背景色
 
 # Socket.IO イベント

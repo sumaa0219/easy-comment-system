@@ -30,6 +30,7 @@ export default function DisplayPage() {
   const [showControls, setShowControls] = useState(false);
   const [localWidth, setLocalWidth] = useState(100);
   const [localOpacity, setLocalOpacity] = useState(30);
+  const [localTextOpacity, setLocalTextOpacity] = useState(100);
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   const { comments, connected } = useSocket(instanceId);
@@ -81,6 +82,7 @@ export default function DisplayPage() {
     if (settings) {
       setLocalWidth(settings.comment_width || 100);
       setLocalOpacity(settings.background_opacity || 30);
+      setLocalTextOpacity(settings.text_opacity || 100);
     }
   }, [settings]);
 
@@ -143,7 +145,7 @@ export default function DisplayPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">
-                背景の不透明度: {localOpacity}%
+                コメント背景の不透明度: {localOpacity}%
               </label>
               <input
                 type="range"
@@ -151,6 +153,19 @@ export default function DisplayPage() {
                 max="100"
                 value={localOpacity}
                 onChange={(e) => setLocalOpacity(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                文字の不透明度: {localTextOpacity}%
+              </label>
+              <input
+                type="range"
+                min="10"
+                max="100"
+                value={localTextOpacity}
+                onChange={(e) => setLocalTextOpacity(Number(e.target.value))}
                 className="w-full"
               />
             </div>
@@ -199,11 +214,25 @@ export default function DisplayPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-sm opacity-90">
+                      <span
+                        className="font-bold text-sm"
+                        style={{
+                          color: `rgba(${hexToRgb(settings.text_color)}, ${
+                            (localTextOpacity * 0.9) / 100
+                          })`,
+                        }}
+                      >
                         {comment.author}
                       </span>
                       {settings.show_timestamp && (
-                        <span className="text-xs opacity-60">
+                        <span
+                          className="text-xs"
+                          style={{
+                            color: `rgba(${hexToRgb(settings.text_color)}, ${
+                              (localTextOpacity * 0.6) / 100
+                            })`,
+                          }}
+                        >
                           {new Date(comment.timestamp).toLocaleString("ja-JP", {
                             year: "numeric",
                             month: "2-digit",
@@ -214,7 +243,16 @@ export default function DisplayPage() {
                         </span>
                       )}
                     </div>
-                    <div className="leading-relaxed">{comment.content}</div>
+                    <div
+                      className="leading-relaxed"
+                      style={{
+                        color: `rgba(${hexToRgb(settings.text_color)}, ${
+                          localTextOpacity / 100
+                        })`,
+                      }}
+                    >
+                      {comment.content}
+                    </div>
                   </div>
                 </div>
               </div>

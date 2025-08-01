@@ -393,7 +393,8 @@ export default function AdminPage({
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          背景の不透明度: {settings.background_opacity || 100}%
+                          コメント背景の不透明度:{" "}
+                          {settings.background_opacity || 30}%
                         </label>
                         <input
                           type="range"
@@ -404,6 +405,24 @@ export default function AdminPage({
                             setSettings({
                               ...settings,
                               background_opacity: parseInt(e.target.value),
+                            })
+                          }
+                          className="w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          文字の不透明度: {settings.text_opacity || 100}%
+                        </label>
+                        <input
+                          type="range"
+                          min="10"
+                          max="100"
+                          value={settings.text_opacity || 100}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              text_opacity: parseInt(e.target.value),
                             })
                           }
                           className="w-full"
@@ -499,17 +518,46 @@ export default function AdminPage({
                           borderLeftColor: settings.text_color,
                           width: `${settings.comment_width || 400}px`,
                           maxWidth: "100%",
+                          color: `rgba(${hexToRgb(settings.text_color)}, ${
+                            (settings.text_opacity || 100) / 100
+                          })`,
                         }}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-sm">
+                          <span
+                            className="font-bold text-sm"
+                            style={{
+                              color: `rgba(${hexToRgb(settings.text_color)}, ${
+                                (settings.text_opacity || 100) / 100
+                              })`,
+                            }}
+                          >
                             サンプルユーザー
                           </span>
                           {settings.show_timestamp && (
-                            <span className="text-xs opacity-60">1分前</span>
+                            <span
+                              className="text-xs"
+                              style={{
+                                color: `rgba(${hexToRgb(
+                                  settings.text_color
+                                )}, ${
+                                  ((settings.text_opacity || 100) * 0.6) / 100
+                                })`,
+                              }}
+                            >
+                              1分前
+                            </span>
                           )}
                         </div>
-                        <div>これはプレビュー用のサンプルコメントです。</div>
+                        <div
+                          style={{
+                            color: `rgba(${hexToRgb(settings.text_color)}, ${
+                              (settings.text_opacity || 100) / 100
+                            })`,
+                          }}
+                        >
+                          これはプレビュー用のサンプルコメントです。
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -796,6 +844,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
           moderation_enabled: false,
           comment_width: 400,
           background_opacity: 30,
+          text_opacity: 100,
           comment_background_color: "#FFFFFF",
         };
       }
@@ -811,6 +860,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         moderation_enabled: false,
         comment_width: 400,
         background_opacity: 30,
+        text_opacity: 100,
         comment_background_color: "#FFFFFF",
       };
     }

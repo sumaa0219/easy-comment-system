@@ -26,6 +26,7 @@ export interface DisplaySettings {
   moderation_enabled: boolean;
   comment_width: number;
   background_opacity: number;
+  text_opacity: number;
   comment_background_color: string;
 }
 
