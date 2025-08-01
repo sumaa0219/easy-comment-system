@@ -119,7 +119,8 @@ class DataStore:
             "comment_width": 400,
             "background_opacity": 30,
             "text_opacity": 100,
-            "comment_background_color": "#FFFFFF"
+            "comment_background_color": "#FFFFFF",
+            "lag_seconds": 0
         }
         self.save_data()
 
@@ -200,6 +201,7 @@ class DisplaySettings(BaseModel):
     background_opacity: int = 30  # パーセンテージ
     text_opacity: int = 100  # パーセンテージ
     comment_background_color: str = "#FFFFFF"  # コメント背景色
+    lag_seconds: int = 0  # コメント表示遅延秒数
 
 # Socket.IO イベント
 @sio.event

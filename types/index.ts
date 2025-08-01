@@ -29,6 +29,7 @@ export interface DisplaySettings {
   background_opacity: number;
   text_opacity: number;
   comment_background_color: string;
+  lag_seconds: number;
 }
 
 export interface CommentCreate {

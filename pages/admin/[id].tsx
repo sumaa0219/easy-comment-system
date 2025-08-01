@@ -506,6 +506,27 @@ export default function AdminPage({
                           モデレーション機能
                         </label>
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          コメント表示遅延: {settings.lag_seconds || 0}秒
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="30"
+                          value={settings.lag_seconds || 0}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              lag_seconds: parseInt(e.target.value),
+                            })
+                          }
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          コメントが投稿されてから表示されるまでの遅延時間
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -880,6 +901,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
           background_opacity: 30,
           text_opacity: 100,
           comment_background_color: "#FFFFFF",
+          lag_seconds: 0,
         };
       }
     } catch (error) {
@@ -896,6 +918,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         background_opacity: 30,
         text_opacity: 100,
         comment_background_color: "#FFFFFF",
+        lag_seconds: 0,
       };
     }
 
