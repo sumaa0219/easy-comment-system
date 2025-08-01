@@ -6,6 +6,13 @@ import { DisplaySettings } from "../../types";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 
+// 環境変数を定義（useSocketフックとcommentApiで内部的に使用される）
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
+
+console.log("Display page using API:", API_URL, "Socket:", SOCKET_URL);
+
 // ヘルパー関数：HEXカラーをRGBに変換
 const hexToRgb = (hex: string): string => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
