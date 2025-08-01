@@ -173,6 +173,7 @@ class CommentResponse(BaseModel):
     content: str
     timestamp: str
     approved: bool = True
+    hidden: bool = False
 
 class InstanceCreate(BaseModel):
     name: str
@@ -217,10 +218,11 @@ async def join_instance(sid, data):
             await sio.enter_room(sid, instance_id)
             logger.info(f"Client {sid} joined instance {instance_id}")
             
-            # 既存のコメントを送信
-            comments = data_store.comments.get(instance_id, [])
-            logger.info(f"Sending {len(comments)} initial comments to client {sid}")
-            await sio.emit('initial_comments', {'comments': comments}, room=sid)
+            # 既存のコメントを送信（非表示でないもののみ）
+            all_comments = data_store.comments.get(instance_id, [])
+            visible_comments = [c for c in all_comments if not c.get('hidden', False)]
+            logger.info(f"Sending {len(visible_comments)} initial comments to client {sid}")
+            await sio.emit('initial_comments', {'comments': visible_comments}, room=sid)
             
             # 設定も送信
             settings = data_store.settings.get(instance_id, DisplaySettings().dict())
@@ -326,7 +328,8 @@ async def create_comment(comment: CommentCreate):
         "author": comment.author,
         "content": comment.content,
         "timestamp": datetime.now().isoformat(),
-        "approved": True
+        "approved": True,
+        "hidden": False
     }
     
     # コメントを保存（制限なし）
@@ -350,7 +353,11 @@ async def create_comment(comment: CommentCreate):
 async def get_comments(instance_id: str):
     if instance_id not in data_store.instances:
         raise HTTPException(status_code=404, detail="Instance not found")
-    return data_store.comments.get(instance_id, [])
+    
+    # 非表示でないコメントのみを返す
+    all_comments = data_store.comments.get(instance_id, [])
+    visible_comments = [c for c in all_comments if not c.get('hidden', False)]
+    return visible_comments
 
 @app.get("/admin/comments/{instance_id}/", response_model=List[CommentResponse])
 async def get_admin_comments(instance_id: str, request: Request):
@@ -365,6 +372,7 @@ async def get_admin_comments(instance_id: str, request: Request):
             headers={"WWW-Authenticate": "Basic"}
         )
     
+    # 管理者は全コメント（非表示も含む）を取得
     return data_store.comments.get(instance_id, [])
 
 @app.put("/settings/{instance_id}/", response_model=DisplaySettings)
@@ -403,21 +411,55 @@ async def get_admin_settings(instance_id: str, request: Request):
     
     return data_store.settings.get(instance_id, DisplaySettings().dict())
 
-@app.delete("/comments/{instance_id}/{comment_id}/")
-async def delete_comment(instance_id: str, comment_id: str):
+@app.put("/comments/{instance_id}/{comment_id}/hide")
+async def hide_comment(instance_id: str, comment_id: str):
     if instance_id not in data_store.instances:
         raise HTTPException(status_code=404, detail="Instance not found")
     
     comments = data_store.comments.get(instance_id, [])
-    data_store.comments[instance_id] = [c for c in comments if c['id'] != comment_id]
+    comment_found = False
+    
+    for comment in comments:
+        if comment['id'] == comment_id:
+            comment['hidden'] = True
+            comment_found = True
+            break
+    
+    if not comment_found:
+        raise HTTPException(status_code=404, detail="Comment not found")
     
     # データを永続化
     data_store.save_data()
     
-    # Socket.IO で削除を配信
-    await sio.emit('comment_deleted', {'comment_id': comment_id}, room=instance_id)
+    # Socket.IO で非表示を配信
+    await sio.emit('comment_hidden', {'comment_id': comment_id}, room=instance_id)
     
-    return {"message": "Comment deleted"}
+    return {"message": "Comment hidden"}
+
+@app.put("/comments/{instance_id}/{comment_id}/show")
+async def show_comment(instance_id: str, comment_id: str):
+    if instance_id not in data_store.instances:
+        raise HTTPException(status_code=404, detail="Instance not found")
+    
+    comments = data_store.comments.get(instance_id, [])
+    comment_found = False
+    
+    for comment in comments:
+        if comment['id'] == comment_id:
+            comment['hidden'] = False
+            comment_found = True
+            break
+    
+    if not comment_found:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    # データを永続化
+    data_store.save_data()
+    
+    # Socket.IO で表示復帰を配信
+    await sio.emit('comment_shown', {'comment_id': comment_id}, room=instance_id)
+    
+    return {"message": "Comment shown"}
 
 @app.post("/webhook/{instance_id}/")
 async def webhook_endpoint(instance_id: str, data: Dict[str, Any]):

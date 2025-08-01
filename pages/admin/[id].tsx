@@ -64,7 +64,7 @@ export default function AdminPage({
     const loadComments = async () => {
       if (!instanceId) return;
       try {
-        const commentHistory = await commentApi.getComments(instanceId);
+        const commentHistory = await commentApi.getAdminComments(instanceId);
         setAllComments(commentHistory);
       } catch (error) {
         console.error("Failed to load comments:", error);
@@ -101,15 +101,32 @@ export default function AdminPage({
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!instanceId || !confirm("このコメントを削除しますか？")) return;
+    if (!instanceId || !confirm("このコメントを非表示にしますか？")) return;
 
     try {
-      await commentApi.deleteComment(instanceId, commentId);
-      // 削除後、ローカルの全コメントリストからも削除
-      setAllComments((prev) => prev.filter((c) => c.id !== commentId));
+      await commentApi.hideComment(instanceId, commentId);
+      // 非表示後、ローカルの全コメントリストから該当コメントのhiddenフラグを更新
+      setAllComments((prev) =>
+        prev.map((c) => (c.id === commentId ? { ...c, hidden: true } : c))
+      );
     } catch (error) {
-      console.error("Failed to delete comment:", error);
-      alert("コメントの削除に失敗しました");
+      console.error("Failed to hide comment:", error);
+      alert("コメントの非表示に失敗しました");
+    }
+  };
+
+  const handleShowComment = async (commentId: string) => {
+    if (!instanceId || !confirm("このコメントを表示に戻しますか？")) return;
+
+    try {
+      await commentApi.showComment(instanceId, commentId);
+      // 表示復帰後、ローカルの全コメントリストから該当コメントのhiddenフラグを更新
+      setAllComments((prev) =>
+        prev.map((c) => (c.id === commentId ? { ...c, hidden: false } : c))
+      );
+    } catch (error) {
+      console.error("Failed to show comment:", error);
+      alert("コメントの表示復帰に失敗しました");
     }
   };
 
@@ -624,13 +641,20 @@ export default function AdminPage({
                       .map((comment) => (
                         <div
                           key={comment.id}
-                          className="border rounded-lg p-4 flex items-start justify-between"
+                          className={`border rounded-lg p-4 flex items-start justify-between ${
+                            comment.hidden ? "bg-gray-100 opacity-60" : ""
+                          }`}
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="font-semibold text-gray-800">
                                 {comment.author}
                               </span>
+                              {comment.hidden && (
+                                <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded">
+                                  非表示
+                                </span>
+                              )}
                               <span className="text-xs text-gray-500">
                                 {new Date(comment.timestamp).toLocaleString(
                                   "ja-JP",
@@ -646,12 +670,23 @@ export default function AdminPage({
                             </div>
                             <p className="text-gray-700">{comment.content}</p>
                           </div>
-                          <button
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="ml-4 bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-colors"
-                          >
-                            削除
-                          </button>
+                          <div className="ml-4 flex gap-2">
+                            {comment.hidden ? (
+                              <button
+                                onClick={() => handleShowComment(comment.id)}
+                                className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition-colors"
+                              >
+                                表示
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteComment(comment.id)}
+                                className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600 transition-colors"
+                              >
+                                非表示
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))
                   )}

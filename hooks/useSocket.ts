@@ -48,6 +48,16 @@ export const useSocket = (instanceId?: string) => {
       setComments(prev => prev.filter(comment => comment.id !== data.comment_id));
     });
 
+    newSocket.on('comment_hidden', (data: { comment_id: string }) => {
+      setComments(prev => prev.filter(comment => comment.id !== data.comment_id));
+    });
+
+    newSocket.on('comment_shown', (data: { comment_id: string }) => {
+      // 表示復帰の場合は、最新のコメントデータを再取得する必要がある
+      // ここでは単純にフィルタから除外されたコメントが復帰することを想定
+      console.log('Comment shown:', data.comment_id);
+    });
+
     newSocket.on('instance_deleted', () => {
       console.log('Instance was deleted');
       setComments([]);

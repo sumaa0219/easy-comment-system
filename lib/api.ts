@@ -59,6 +59,14 @@ export const commentApi = {
     await api.delete(`/comments/${instanceId}/${commentId}/`);
   },
 
+  hideComment: async (instanceId: string, commentId: string): Promise<void> => {
+    await api.put(`/comments/${instanceId}/${commentId}/hide`);
+  },
+
+  showComment: async (instanceId: string, commentId: string): Promise<void> => {
+    await api.put(`/comments/${instanceId}/${commentId}/show`);
+  },
+
   // 設定関連
   getSettings: async (instanceId: string): Promise<DisplaySettings> => {
     const response = await api.get(`/settings/${instanceId}/`);

@@ -5,6 +5,7 @@ export interface Comment {
   content: string;
   timestamp: string;
   approved: boolean;
+  hidden?: boolean;
 }
 
 export interface Instance {
