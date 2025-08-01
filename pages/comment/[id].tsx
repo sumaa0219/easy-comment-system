@@ -3,8 +3,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useSocket } from "../../hooks/useSocket";
 import { commentApi } from "../../lib/api";
 import { Instance, CommentCreate } from "../../types";
-import { formatDistanceToNow } from "date-fns";
-import { ja } from "date-fns/locale";
 
 // 環境変数を定義（useSocketフックとcommentAPIで内部的に使用される）
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -202,9 +200,12 @@ export default function CommentPage() {
                           {comment.author}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {formatDistanceToNow(new Date(comment.timestamp), {
-                            addSuffix: true,
-                            locale: ja,
+                          {new Date(comment.timestamp).toLocaleString("ja-JP", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
                           })}
                         </span>
                       </div>

@@ -3,8 +3,6 @@ import { useState } from "react";
 import { useSocket } from "../../hooks/useSocket";
 import { commentApi } from "../../lib/api";
 import { Instance, DisplaySettings, Comment } from "../../types";
-import { formatDistanceToNow } from "date-fns";
-import { ja } from "date-fns/locale";
 import { GetServerSideProps } from "next";
 
 // 環境変数を定義（useSocketフックとcommentAPIで内部的に使用される）
@@ -395,7 +393,7 @@ export default function AdminPage({
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          背景の不透明度: {settings.background_opacity || 30}%
+                          背景の不透明度: {settings.background_opacity || 100}%
                         </label>
                         <input
                           type="range"
@@ -417,7 +415,7 @@ export default function AdminPage({
                         </label>
                         <input
                           type="range"
-                          min="10"
+                          min="1"
                           max="100"
                           value={settings.max_comments}
                           onChange={(e) =>
@@ -557,11 +555,14 @@ export default function AdminPage({
                                 {comment.author}
                               </span>
                               <span className="text-xs text-gray-500">
-                                {formatDistanceToNow(
-                                  new Date(comment.timestamp),
+                                {new Date(comment.timestamp).toLocaleString(
+                                  "ja-JP",
                                   {
-                                    addSuffix: true,
-                                    locale: ja,
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
                                   }
                                 )}
                               </span>
