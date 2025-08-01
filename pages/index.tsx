@@ -3,6 +3,11 @@ import Link from "next/link";
 import { commentApi } from "../lib/api";
 import { Instance, InstanceCreate } from "../types";
 
+// 環境変数を定義（commentAPIで内部的に使用される）
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+console.log("Home page using API:", API_URL);
+
 export default function HomePage() {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);

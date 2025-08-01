@@ -49,11 +49,35 @@ export default function DisplayPage() {
     }
   }, [instanceId]);
 
+  // コメント履歴の初期ロードを確実にする
+  const loadCommentsHistory = useCallback(async () => {
+    if (instanceId && comments.length === 0) {
+      try {
+        const response = await fetch(`${API_URL}/comments/${instanceId}/`);
+        if (response.ok) {
+          const commentsData = await response.json();
+          console.log(
+            "Loaded comments history:",
+            commentsData.length,
+            "comments"
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load comments history:", error);
+      }
+    }
+  }, [instanceId, comments.length]);
+
   useEffect(() => {
     if (instanceId) {
       loadSettings();
+      // Socket接続後少し待ってから履歴をロード
+      const timer = setTimeout(() => {
+        loadCommentsHistory();
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [instanceId, loadSettings]);
+  }, [instanceId, loadSettings, loadCommentsHistory]);
 
   useEffect(() => {
     if (settings) {

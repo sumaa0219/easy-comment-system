@@ -1,10 +1,17 @@
 import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSocket } from "../../hooks/useSocket";
 import { commentApi } from "../../lib/api";
 import { Instance, CommentCreate } from "../../types";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
+
+// 環境変数を定義（useSocketフックとcommentAPIで内部的に使用される）
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:8000";
+
+console.log("Comment page using API:", API_URL, "Socket:", SOCKET_URL);
 
 export default function CommentPage() {
   const router = useRouter();
@@ -19,13 +26,7 @@ export default function CommentPage() {
 
   const { comments, connected } = useSocket(instanceId);
 
-  useEffect(() => {
-    if (instanceId) {
-      loadInstance();
-    }
-  }, [instanceId]);
-
-  const loadInstance = async () => {
+  const loadInstance = useCallback(async () => {
     if (instanceId) {
       try {
         const data = await commentApi.getInstance(instanceId);
@@ -36,7 +37,13 @@ export default function CommentPage() {
         setLoading(false);
       }
     }
-  };
+  }, [instanceId]);
+
+  useEffect(() => {
+    if (instanceId) {
+      loadInstance();
+    }
+  }, [instanceId, loadInstance]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

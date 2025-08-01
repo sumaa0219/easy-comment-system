@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Comment, DisplaySettings } from '../types';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export const useSocket = (instanceId?: string) => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -73,7 +74,7 @@ export const useSocket = (instanceId?: string) => {
       // フォールバック: Socket.IOが失敗した場合のAPIからの直接取得
       const loadCommentsFromAPI = async () => {
         try {
-          const response = await fetch(`http://localhost:8000/comments/${instanceId}/`);
+          const response = await fetch(`${API_URL}/comments/${instanceId}/`);
           if (response.ok) {
             const comments = await response.json();
             setComments(comments);
