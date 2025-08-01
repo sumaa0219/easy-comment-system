@@ -743,7 +743,7 @@ export default function AdminPage({
                     コメント一覧 ({allComments.length}件)
                   </h3>
                 </div>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-3 max-h-200 overflow-y-auto">
                   {allComments.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       まだコメントがありません
