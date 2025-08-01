@@ -32,6 +32,9 @@ export default function DisplayPage() {
   const [localOpacity, setLocalOpacity] = useState(30);
   const [localTextOpacity, setLocalTextOpacity] = useState(100);
   const [visibleComments, setVisibleComments] = useState<Comment[]>([]);
+  const [flowDirection, setFlowDirection] = useState<
+    "bottom-to-top" | "top-to-bottom" | "right-to-left" | "left-to-right"
+  >("bottom-to-top");
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const lagTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -196,9 +199,22 @@ export default function DisplayPage() {
 
   useEffect(() => {
     if (currentSettings?.auto_scroll && commentsEndRef.current) {
-      commentsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      // 流れる方向に応じてスクロール方向を調整
+      if (
+        flowDirection === "right-to-left" ||
+        flowDirection === "left-to-right"
+      ) {
+        // 横方向の場合は水平スクロール
+        commentsEndRef.current.scrollIntoView({
+          behavior: "smooth",
+          inline: "nearest",
+        });
+      } else {
+        // 縦方向の場合は垂直スクロール
+        commentsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     }
-  }, [visibleComments, currentSettings?.auto_scroll]);
+  }, [visibleComments, currentSettings?.auto_scroll, flowDirection]);
 
   if (loading) {
     return (
@@ -241,16 +257,20 @@ export default function DisplayPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">
-                コメント幅: {localWidth}%
+                コメントの流れる方向
               </label>
-              <input
-                type="range"
-                min="30"
-                max="100"
-                value={localWidth}
-                onChange={(e) => setLocalWidth(Number(e.target.value))}
-                className="w-full"
-              />
+              <select
+                value={flowDirection}
+                onChange={(e) =>
+                  setFlowDirection(e.target.value as typeof flowDirection)
+                }
+                className="w-full p-2 rounded bg-gray-700 text-white border border-gray-600"
+              >
+                <option value="bottom-to-top">下から上へ</option>
+                <option value="top-to-bottom">上から下へ</option>
+                <option value="right-to-left">右から左へ</option>
+                <option value="left-to-right">左から右へ</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -293,12 +313,49 @@ export default function DisplayPage() {
       </div>
 
       {/* コメント表示エリア */}
-      <div className="w-full h-full overflow-y-auto p-4 flex flex-col items-center">
+      <div
+        className={`w-full h-full overflow-hidden p-4 ${
+          flowDirection === "right-to-left" || flowDirection === "left-to-right"
+            ? "flex items-center justify-center"
+            : "flex flex-col justify-center"
+        }`}
+      >
         <div
-          className="space-y-2"
+          className={`${
+            flowDirection === "bottom-to-top"
+              ? "space-y-2 flex flex-col-reverse"
+              : flowDirection === "top-to-bottom"
+              ? "space-y-2 flex flex-col"
+              : flowDirection === "right-to-left"
+              ? "space-x-4 flex flex-row-reverse overflow-x-auto"
+              : "space-x-4 flex flex-row overflow-x-auto" // left-to-right
+          }`}
           style={{
-            width: `${currentSettings.comment_width || 400}px`,
-            maxWidth: "100%",
+            width:
+              flowDirection === "right-to-left" ||
+              flowDirection === "left-to-right"
+                ? "100%"
+                : `${currentSettings.comment_width || 400}px`,
+            maxWidth:
+              flowDirection === "right-to-left" ||
+              flowDirection === "left-to-right"
+                ? "none"
+                : "100%",
+            height:
+              flowDirection === "right-to-left" ||
+              flowDirection === "left-to-right"
+                ? "fit-content"
+                : "auto",
+            maxHeight:
+              flowDirection === "right-to-left" ||
+              flowDirection === "left-to-right"
+                ? "80vh"
+                : "none",
+            alignSelf:
+              flowDirection === "right-to-left" ||
+              flowDirection === "left-to-right"
+                ? "center"
+                : "center",
           }}
         >
           {displayComments.length === 0 ? (
@@ -312,13 +369,18 @@ export default function DisplayPage() {
             displayComments.map((comment) => (
               <div
                 key={comment.id}
-                className="p-3 rounded-lg shadow-sm border-l-4 backdrop-blur-sm"
+                className="p-3 rounded-lg shadow-sm border-l-4 backdrop-blur-sm flex-shrink-0"
                 style={{
                   backgroundColor: `rgba(${hexToRgb(
                     currentSettings.comment_background_color ||
                       currentSettings.text_color
                   )}, ${localOpacity / 100})`,
                   borderLeftColor: currentSettings.text_color,
+                  width:
+                    flowDirection === "right-to-left" ||
+                    flowDirection === "left-to-right"
+                      ? `${currentSettings.comment_width || 400}px`
+                      : "auto",
                 }}
               >
                 <div className="flex items-start justify-between">
@@ -376,7 +438,7 @@ export default function DisplayPage() {
       {process.env.NODE_ENV === "development" && (
         <div className="absolute bottom-2 left-2 text-xs opacity-30">
           {instanceId} | {displayComments.length}/{currentSettings.max_comments}{" "}
-          comments | lag: {currentSettings.lag_seconds}s
+          comments | lag: {currentSettings.lag_seconds}s | flow: {flowDirection}
         </div>
       )}
     </div>
